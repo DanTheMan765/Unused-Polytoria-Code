@@ -1,0 +1,15 @@
+local DictionaryService = {}
+
+DictionaryService.getn = function(dictionary)
+	local amountOfItems = 0
+	for i, v in pairs(dictionary) do
+		print("dictionary item is: " .. i)
+		amountOfItems += 1
+	end
+	return amountOfItems
+end
+
+return DictionaryService
+
+-- you can't use #[array goes here] for dictionaries. Btw, the first function here doesn't collide with the Roblox-only keyword
+-- for getting the amount of items in an array.
