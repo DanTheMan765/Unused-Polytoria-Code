@@ -1,0 +1,117 @@
+local AvalancheModule = {}
+
+-- Local definitions
+local Modules = ScriptService.Modules
+local DimensionsModule = require(Modules.DimensionsModule)
+
+local possiblePositions = 10 -- Amount of possible positions for an obstacle on an axis.
+local divider = possiblePositions / 2 -- Makes half of the possible positions positive and the other negative, allowing obstacles on either side of the center of the track section.
+local xMargin = 7 -- If this is equal to possiblePositions, parts can spawn anywhere on the track section. A smaller number decreases the range of the obstacles across the track section.
+
+-- Module variables
+AvalancheModule.spawnZone = Environment.TrackFolder.BaseplateModel.AvalancheSpawnZone -- Defining this in the function below doesn't work??
+AvalancheModule.frequency = 0
+AvalancheModule.minSize = 0
+AvalancheModule.maxSize = 0
+AvalancheModule.minSpeed = 0
+AvalancheModule.maxSpeed = 0
+AvalancheModule.debrisTime = 0
+
+-- Module functions
+AvalancheModule.setParameters = function(
+	spawnZone,
+	frequency: number,
+	minSize: number,
+	maxSize: number,
+	minSpeed: number,
+	maxSpeed: number,
+	debrisTime: number
+)
+	if maxSize < minSize then
+		print("Invalid size")
+		return
+	end
+	if maxSpeed < minSpeed then
+		print("Invalid speed")
+		return
+	end
+	if frequency < 0 then
+		print("Invalid frequency")
+		return
+	end
+	AvalancheModule.spawnZone = spawnZone
+	AvalancheModule.frequency = frequency
+	AvalancheModule.minSize = minSize
+	AvalancheModule.maxSize = maxSize
+	AvalancheModule.minSpeed = minSpeed
+	AvalancheModule.maxSpeed = maxSpeed
+	AvalancheModule.debrisTime = debrisTime
+end
+
+-- If this is not made into a coroutine, it cannot run simultaneously as the server-side scripts.
+-- I think this is because of multithreading issues on Polytoria's side.
+local generateAvalanche = coroutine.create(function()
+	local halfWidth = AvalancheModule.spawnZone.Size.X / 2
+	local halfHeight = AvalancheModule.spawnZone.Size.Y / 2
+	local halfLength = AvalancheModule.spawnZone.Size.Z / 2
+	while true do
+		local randomSize = math.random(AvalancheModule.minSize, AvalancheModule.maxSize)
+		local randomSpeed = math.random(AvalancheModule.minSpeed, AvalancheModule.maxSpeed)
+		local avalancheBall = ServerHidden.ModelsFolder.AvalancheBallModel:Clone()
+
+		local randomXCoordinate = (math.random(0, possiblePositions) - divider) / xMargin
+		-- I know that this locks the positions of the avalanche ball to a line, but it saves on processing power and we compensate with random speed.
+		local randomPosition = DimensionsModule.getCorner(
+			AvalancheModule.spawnZone,
+			halfWidth,
+			halfHeight,
+			halfLength,
+			randomXCoordinate,
+			0,
+			0,
+			true
+		)
+
+		avalancheBall.Parent = Environment
+		avalancheBall.Part.Size = Vector3.New(randomSize, randomSize, randomSize)
+		avalancheBall.Part.Position = randomPosition
+		avalancheBall.Part.Anchored = false
+		avalancheBall.Part.Velocity = Vector3.New(0, 0, randomSpeed)
+		local debris = coroutine.create(function()
+			wait(AvalancheModule.debrisTime)
+			avalancheBall:Destroy()
+		end)
+		coroutine.resume(debris)
+		wait(AvalancheModule.frequency)
+	end
+end)
+
+AvalancheModule.startAvalanche = function()
+	if AvalancheModule.spawnZone:IsA("Part") then
+		coroutine.resume(generateAvalanche)
+		print("Starting avalanche")
+	else
+		print("Invalid spawn zone")
+	end
+end
+
+AvalancheModule.endAvalanche = function()
+	coroutine.yield(generateAvalanche)
+	print("Ending avalanche")
+end
+
+AvalancheModule.timerAvalanche = function(time)
+	if AvalancheModule.spawnZone:IsA("Part") then
+		coroutine.resume(generateAvalanche)
+		print("Starting avalanche")
+	else
+		print("Invalid spawn zone")
+		return
+	end
+	wait(time)
+	print("Ending avalanche..")
+	coroutine.yield(generateAvalanche)
+	print("Ending avalanche FR")
+end
+
+return AvalancheModule
